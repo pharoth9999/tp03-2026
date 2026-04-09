@@ -30,6 +30,17 @@ pipeline {
                 String token = env.TELEGRAM_BOT_TOKEN ?: ''
                 String chatId = env.TELEGRAM_CHAT_ID ?: ''
 
+                if ((!token.trim() || !chatId.trim()) && fileExists('.env')) {
+                    String fileToken = sh(script: "grep -E '^TELEGRAM_BOT_TOKEN=' .env | tail -n 1 | cut -d= -f2-", returnStdout: true).trim()
+                    String fileChatId = sh(script: "grep -E '^TELEGRAM_CHAT_ID=' .env | tail -n 1 | cut -d= -f2-", returnStdout: true).trim()
+                    if (fileToken) {
+                        token = fileToken
+                    }
+                    if (fileChatId) {
+                        chatId = fileChatId
+                    }
+                }
+
                 if (token.trim() && chatId.trim() && token != 'null' && chatId != 'null') {
                     withEnv([
                         "TG_TOKEN=${token}",
@@ -69,7 +80,7 @@ PY''', returnStatus: true)
                         }
                     }
                 } else {
-                    echo 'TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing in Jenkins environment.'
+                    echo 'Telegram config missing. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in Jenkins Global/Job Environment Variables.'
                 }
             }
         }
