@@ -1,33 +1,19 @@
----
 - name: Deploy Laravel app
   hosts: laravel_server
   become: true
+
   vars:
     app_path: /var/www/thy-pharoth
     repo_url: https://github.com/pharoth9999/tp03-2026.git
     repo_branch: main
 
   tasks:
-    - name: Install required system packages
-      apt:
-        name:
-          - git
-          - unzip
-          - php-cli
-          - php-mbstring
-          - php-xml
-          - php-curl
-          - php-sqlite3
-          - composer
-        state: present
-        update_cache: true
-
     - name: Ensure deployment directory exists
       file:
         path: "{{ app_path }}"
         state: directory
-        owner: root
-        group: root
+        owner: www-data
+        group: www-data
         mode: "0755"
 
     - name: Pull latest source code
@@ -54,7 +40,35 @@
       args:
         chdir: "{{ app_path }}"
 
-    - name: Cache config and routes
+    - name: Install Node dependencies
+      command: npm install
+      args:
+        chdir: "{{ app_path }}"
+
+    - name: Build frontend
+      command: npm run build
+      args:
+        chdir: "{{ app_path }}"
+
+    - name: Optimize Laravel
       command: php artisan optimize
       args:
         chdir: "{{ app_path }}"
+
+    - name: Set correct permissions
+      file:
+        path: "{{ app_path }}"
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+
+    - name: Restart PHP-FPM
+      service:
+        name: php8.1-fpm
+        state: restarted
+
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
