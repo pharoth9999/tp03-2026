@@ -49,6 +49,9 @@ pipeline {
                         "TG_BUILD_NUMBER=${env.BUILD_NUMBER}",
                         "TG_BUILD_URL=${env.BUILD_URL ?: ''}",
                         "TG_BRANCH_NAME=${env.BRANCH_NAME ?: 'N/A'}",
+                        "TG_GIT_COMMIT=${env.GIT_COMMIT ?: 'N/A'}",
+                        "TG_GIT_BRANCH=${env.GIT_BRANCH ?: 'N/A'}",
+                        "TG_DURATION=${currentBuild.durationString ?: 'N/A'}",
                         "TG_RESULT=${currentBuild.currentResult ?: 'FAILURE'}"
                     ]) {
                         int rc = sh(script: '''python3 - <<'PY'
@@ -64,8 +67,12 @@ text = "\n".join([
     f"Project: {os.environ.get('TG_JOB_NAME', 'unknown')}",
     f"Build: #{os.environ.get('TG_BUILD_NUMBER', 'unknown')}",
     f"Branch: {os.environ.get('TG_BRANCH_NAME', 'N/A')}",
+    f"Git Branch: {os.environ.get('TG_GIT_BRANCH', 'N/A')}",
+    f"Commit: {os.environ.get('TG_GIT_COMMIT', 'N/A')}",
     f"Result: {os.environ.get('TG_RESULT', 'FAILURE')}",
+    f"Duration: {os.environ.get('TG_DURATION', 'N/A')}",
     f"Details: {os.environ.get('TG_BUILD_URL', '')}",
+    "Check Jenkins console output for the exact error line.",
 ])
 
 url = f"https://api.telegram.org/bot{token}/sendMessage"
