@@ -78,6 +78,10 @@
       args:
         chdir: "{{ app_path }}"
       become_user: www-data
+      environment:
+        HOME: "{{ app_path }}"
+        COMPOSER_HOME: "{{ app_path }}/.composer"
+        COMPOSER_CACHE_DIR: "{{ app_path }}/.composer/cache"
 
     - name: Generate Laravel app key
       command: php artisan key:generate --force
@@ -97,11 +101,22 @@
         state: present
       ignore_errors: yes
 
+    - name: Ensure npm cache directory exists
+      file:
+        path: "{{ app_path }}/.npm"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0755"
+
     - name: Install Node dependencies (optional)
       command: npm install
       args:
         chdir: "{{ app_path }}"
       become_user: www-data
+      environment:
+        HOME: "{{ app_path }}"
+        npm_config_cache: "{{ app_path }}/.npm"
       ignore_errors: yes
 
     - name: Build frontend (optional)
@@ -109,6 +124,9 @@
       args:
         chdir: "{{ app_path }}"
       become_user: www-data
+      environment:
+        HOME: "{{ app_path }}"
+        npm_config_cache: "{{ app_path }}/.npm"
       ignore_errors: yes
 
     - name: Optimize Laravel
@@ -130,22 +148,27 @@
       copy:
         dest: /etc/nginx/conf.d/thy-pharoth.conf
         content: |
-          location = /thy-pharoth {
-              return 301 /thy-pharoth/;
-          }
+          server {
+            listen 80;
+            server_name 178.128.93.188;
 
-          location /thy-pharoth/ {
+            location = /thy-pharoth {
+              return 301 /thy-pharoth/;
+            }
+
+            location /thy-pharoth/ {
               alias {{ app_path }}/public/;
               index index.php index.html;
               try_files $uri $uri/ /thy-pharoth/index.php?$query_string;
-          }
+            }
 
-          location ~ ^/thy-pharoth/(.+\.php)$ {
+            location ~ ^/thy-pharoth/(.+\.php)$ {
               alias {{ app_path }}/public/$1;
               include snippets/fastcgi-php.conf;
               fastcgi_pass unix:/run/php/php8.1-fpm.sock;
               fastcgi_param SCRIPT_FILENAME {{ app_path }}/public/$1;
               include fastcgi_params;
+            }
           }
 
     - name: Validate nginx config
