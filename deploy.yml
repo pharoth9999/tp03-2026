@@ -1,0 +1,60 @@
+---
+- name: Deploy Laravel app
+  hosts: laravel_server
+  become: true
+  vars:
+    app_path: /var/www/your_name
+    repo_url: https://github.com/pharoth9999/tp03-2026.git
+    repo_branch: main
+
+  tasks:
+    - name: Install required system packages
+      apt:
+        name:
+          - git
+          - unzip
+          - php-cli
+          - php-mbstring
+          - php-xml
+          - php-curl
+          - php-sqlite3
+          - composer
+        state: present
+        update_cache: true
+
+    - name: Ensure deployment directory exists
+      file:
+        path: "{{ app_path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Pull latest source code
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_path }}"
+        version: "{{ repo_branch }}"
+        force: true
+
+    - name: Ensure .env exists
+      copy:
+        src: "{{ app_path }}/.env.example"
+        dest: "{{ app_path }}/.env"
+        remote_src: true
+        force: false
+
+    - name: Install PHP dependencies
+      command: composer install --no-dev --optimize-autoloader --no-interaction
+      args:
+        chdir: "{{ app_path }}"
+
+    - name: Generate Laravel app key
+      command: php artisan key:generate --force
+      args:
+        chdir: "{{ app_path }}"
+
+    - name: Cache config and routes
+      command: php artisan optimize
+      args:
+        chdir: "{{ app_path }}"

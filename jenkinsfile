@@ -3,6 +3,11 @@ pipeline {
         label 'laravel'
     }
 
+    environment {
+        TELEGRAM_BOT_TOKEN = "${env.TELEGRAM_BOT_TOKEN}"
+        TELEGRAM_CHAT_ID = "${env.TELEGRAM_CHAT_ID}"
+    }
+
     stages {
         stage('Build') {
             steps {
@@ -20,8 +25,8 @@ pipeline {
                 // sh 'sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=/" .env'
 
                 echo 'Installing dependencies...'
-                sh 'composer install'
-                sh 'npm install'
+                sh 'composer install --no-interaction --prefer-dist'
+                sh 'npm ci'
 
                 echo 'Generating application key...'
                 sh 'php artisan key:generate'
@@ -36,7 +41,21 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo 'Deploying...'
-                sh 'ansible-playbook -i inventory/hosts deploy.yml'
+                sh 'ansible-playbook -i inventory/hosts deploy.yml -vv'
+            }
+        }
+    }
+
+    post {
+        failure {
+            script {
+                if (env.TELEGRAM_BOT_TOKEN?.trim() && env.TELEGRAM_CHAT_ID?.trim()) {
+                    sh '''curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+                        -d "chat_id=${TELEGRAM_CHAT_ID}" \
+                        --data-urlencode "text=Jenkins build failed: ${JOB_NAME} #${BUILD_NUMBER} (${BUILD_URL})"'''
+                } else {
+                    echo 'TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing; skipping Telegram notification.'
+                }
             }
         }
     }
