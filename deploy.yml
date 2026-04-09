@@ -30,21 +30,26 @@
           - npm
         state: present
 
-    - name: Ensure deployment directory exists
+    - name: Remove deployment directory if it exists (fresh clone)
+      file:
+        path: "{{ app_path }}"
+        state: absent
+
+    - name: Clone repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_path }}"
+        version: "{{ repo_branch }}"
+        accept_hostkey: yes
+
+    - name: Set directory ownership to www-data
       file:
         path: "{{ app_path }}"
         state: directory
         owner: www-data
         group: www-data
         mode: "0755"
-
-    - name: Clone/update repository
-      git:
-        repo: "{{ repo_url }}"
-        dest: "{{ app_path }}"
-        version: "{{ repo_branch }}"
-        force: true
-        accept_hostkey: yes
+        recurse: yes
 
     - name: Ensure .env exists
       copy:
