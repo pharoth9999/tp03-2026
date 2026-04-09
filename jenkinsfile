@@ -9,7 +9,7 @@ pipeline {
                 echo 'Building...'
                 checkout scm
 
-                sh 'cp .env.example .env'
+                sh 'test -f .env || cp .env.example .env'
                 sh 'composer install --no-interaction --prefer-dist'
                 sh 'npm ci'
                 sh 'php artisan key:generate'
@@ -27,19 +27,31 @@ pipeline {
     post {
         failure {
             script {
-                String token = env.TELEGRAM_BOT_TOKEN ?: ''
-                String chatId = env.TELEGRAM_CHAT_ID ?: ''
+                sh '''
+                    set -a
+                    [ -f .env ] && . ./.env
+                    set +a
 
-                if (token && chatId) {
-                    sh """
-                    curl -s -X POST https://api.telegram.org/bot${token}/sendMessage \
-                    -d chat_id=${chatId} \
-                    -d text="🚨 Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}" \
-                    -d parse_mode=Markdown
-                    """
-                } else {
-                    echo "Telegram config missing"
-                }
+                    if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+                        python3 - <<'PY'
+import os
+import urllib.parse
+import urllib.request
+
+token = os.environ['TELEGRAM_BOT_TOKEN']
+chat_id = os.environ['TELEGRAM_CHAT_ID']
+text = f"Build Failed: {os.environ.get('JOB_NAME', 'unknown')} #{os.environ.get('BUILD_NUMBER', 'unknown')}"
+
+url = f"https://api.telegram.org/bot{token}/sendMessage"
+data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
+req = urllib.request.Request(url, data=data, method="POST")
+with urllib.request.urlopen(req, timeout=15) as response:
+    print(response.status)
+PY
+                    else
+                        echo "Telegram config missing in .env"
+                    fi
+                '''
             }
         }
     }
