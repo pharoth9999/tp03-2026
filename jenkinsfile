@@ -34,7 +34,11 @@ pipeline {
                     withEnv([
                         "TG_TOKEN=${token}",
                         "TG_CHAT_ID=${chatId}",
-                        "TG_TEXT=Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                        "TG_JOB_NAME=${env.JOB_NAME}",
+                        "TG_BUILD_NUMBER=${env.BUILD_NUMBER}",
+                        "TG_BUILD_URL=${env.BUILD_URL ?: ''}",
+                        "TG_BRANCH_NAME=${env.BRANCH_NAME ?: 'N/A'}",
+                        "TG_RESULT=${currentBuild.currentResult ?: 'FAILURE'}"
                     ]) {
                         int rc = sh(script: '''python3 - <<'PY'
 import os
@@ -43,7 +47,15 @@ import urllib.request
 
 token = os.environ['TG_TOKEN']
 chat_id = os.environ['TG_CHAT_ID']
-text = os.environ['TG_TEXT']
+text = "\n".join([
+    "Jenkins Alert",
+    "Status: FAILED",
+    f"Project: {os.environ.get('TG_JOB_NAME', 'unknown')}",
+    f"Build: #{os.environ.get('TG_BUILD_NUMBER', 'unknown')}",
+    f"Branch: {os.environ.get('TG_BRANCH_NAME', 'N/A')}",
+    f"Result: {os.environ.get('TG_RESULT', 'FAILURE')}",
+    f"Details: {os.environ.get('TG_BUILD_URL', '')}",
+])
 
 url = f"https://api.telegram.org/bot{token}/sendMessage"
 data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
