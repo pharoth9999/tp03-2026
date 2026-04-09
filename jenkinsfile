@@ -45,7 +45,8 @@ pipeline {
                             "TG_GIT_COMMIT=${env.GIT_COMMIT ?: 'N/A'}",
                             "TG_GIT_BRANCH=${env.GIT_BRANCH ?: 'N/A'}",
                             "TG_DURATION=${currentBuild.durationString ?: 'N/A'}",
-                            "TG_RESULT=${currentBuild.currentResult ?: 'FAILURE'}"
+                            "TG_RESULT=${currentBuild.currentResult ?: 'FAILURE'}",
+                            "TG_TEXT=Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
                         ]) {
                             int rc = sh(script: '''python3 - <<'PY'
 import os
@@ -54,19 +55,7 @@ import urllib.request
 
 token = os.environ['TG_TOKEN']
 chat_id = os.environ['TG_CHAT_ID']
-text = "\n".join([
-    "Jenkins Alert",
-    "Status: FAILED",
-    f"Project: {os.environ.get('TG_JOB_NAME', 'unknown')}",
-    f"Build: #{os.environ.get('TG_BUILD_NUMBER', 'unknown')}",
-    f"Branch: {os.environ.get('TG_BRANCH_NAME', 'N/A')}",
-    f"Git Branch: {os.environ.get('TG_GIT_BRANCH', 'N/A')}",
-    f"Commit: {os.environ.get('TG_GIT_COMMIT', 'N/A')}",
-    f"Result: {os.environ.get('TG_RESULT', 'FAILURE')}",
-    f"Duration: {os.environ.get('TG_DURATION', 'N/A')}",
-    f"Details: {os.environ.get('TG_BUILD_URL', '')}",
-    "Check Jenkins console output for the exact error line.",
-])
+text = os.environ['TG_TEXT']
 
 url = f"https://api.telegram.org/bot{token}/sendMessage"
 data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
