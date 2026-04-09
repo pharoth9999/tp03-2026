@@ -27,28 +27,19 @@ pipeline {
     post {
         failure {
             script {
-                withCredentials([
-                    string(credentialsId: 'telegram-bot-token', variable: 'TELEGRAM_BOT_TOKEN'),
-                    string(credentialsId: 'telegram-chat-id', variable: 'TELEGRAM_CHAT_ID')
-                ]) {
-                    String token = env.TELEGRAM_BOT_TOKEN ?: ''
-                    String chatId = env.TELEGRAM_CHAT_ID ?: ''
+                String token = env.TELEGRAM_BOT_TOKEN ?: ''
+                String chatId = env.TELEGRAM_CHAT_ID ?: ''
 
-                    if (token.trim() && chatId.trim() && token != 'null' && chatId != 'null') {
-                        withEnv([
-                            "TG_TOKEN=${token}",
-                            "TG_CHAT_ID=${chatId}",
-                            "TG_JOB_NAME=${env.JOB_NAME}",
-                            "TG_BUILD_NUMBER=${env.BUILD_NUMBER}",
-                            "TG_BUILD_URL=${env.BUILD_URL ?: ''}",
-                            "TG_BRANCH_NAME=${env.BRANCH_NAME ?: 'N/A'}",
-                            "TG_GIT_COMMIT=${env.GIT_COMMIT ?: 'N/A'}",
-                            "TG_GIT_BRANCH=${env.GIT_BRANCH ?: 'N/A'}",
-                            "TG_DURATION=${currentBuild.durationString ?: 'N/A'}",
-                            "TG_RESULT=${currentBuild.currentResult ?: 'FAILURE'}",
-                            "TG_TEXT=Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
-                        ]) {
-                            int rc = sh(script: '''python3 - <<'PY'
+                if (token.trim() && chatId.trim() && token != 'null' && chatId != 'null') {
+                    withEnv([
+                        "TG_TOKEN=${token}",
+                        "TG_CHAT_ID=${chatId}",
+                        "TG_JOB_NAME=${env.JOB_NAME}",
+                        "TG_BUILD_NUMBER=${env.BUILD_NUMBER}",
+                        "TG_BUILD_URL=${env.BUILD_URL ?: ''}",
+                        "TG_TEXT=Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                    ]) {
+                        int rc = sh(script: '''python3 - <<'PY'
 import os
 import urllib.parse
 import urllib.request
@@ -64,13 +55,12 @@ with urllib.request.urlopen(req, timeout=15) as response:
     print(response.status)
 PY''', returnStatus: true)
 
-                            if (rc != 0) {
-                                echo "Telegram notification failed with status ${rc}."
-                            }
+                        if (rc != 0) {
+                            echo "Telegram notification failed with status ${rc}."
                         }
-                    } else {
-                        echo 'Telegram credentials are empty in Jenkins.'
                     }
+                } else {
+                    echo 'TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID missing in Jenkins Global Environment Variables.'
                 }
             }
         }
