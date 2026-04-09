@@ -3,7 +3,7 @@
   hosts: laravel_server
   become: true
   vars:
-    app_path: /var/www/your_name
+    app_path: /var/www/thy-pharoth
     repo_url: https://github.com/pharoth9999/tp03-2026.git
     repo_branch: main
 

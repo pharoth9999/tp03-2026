@@ -2,7 +2,6 @@ pipeline {
     agent {
         label 'laravel'
     }
-
     stages {
         stage('Build') {
             steps {
@@ -22,8 +21,15 @@ pipeline {
                 sh 'php artisan test'
             }
         }
+        stage('Deploy') {
+            steps {
+                echo 'Deploying to 178.128.93.188...'
+                sshagent(credentials: ['laravel-agent-key']) {
+                    sh "ansible-playbook -i inventory/hosts deploy.yml -e app_path=/var/www/thy-pharoth -vv"
+                }
+            }
+        }
     }
-
     post {
         failure {
             script {
