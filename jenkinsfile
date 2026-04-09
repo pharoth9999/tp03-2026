@@ -27,31 +27,38 @@ pipeline {
     post {
         failure {
             script {
-                sh '''
-                    set -a
-                    [ -f .env ] && . ./.env
-                    set +a
+                String token = env.TELEGRAM_BOT_TOKEN ?: ''
+                String chatId = env.TELEGRAM_CHAT_ID ?: ''
 
-                    if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
-                        python3 - <<'PY'
+                if (token.trim() && chatId.trim() && token != 'null' && chatId != 'null') {
+                    withEnv([
+                        "TG_TOKEN=${token}",
+                        "TG_CHAT_ID=${chatId}",
+                        "TG_TEXT=Build Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+                    ]) {
+                        int rc = sh(script: '''python3 - <<'PY'
 import os
 import urllib.parse
 import urllib.request
 
-token = os.environ['TELEGRAM_BOT_TOKEN']
-chat_id = os.environ['TELEGRAM_CHAT_ID']
-text = f"Build Failed: {os.environ.get('JOB_NAME', 'unknown')} #{os.environ.get('BUILD_NUMBER', 'unknown')}"
+token = os.environ['TG_TOKEN']
+chat_id = os.environ['TG_CHAT_ID']
+text = os.environ['TG_TEXT']
 
 url = f"https://api.telegram.org/bot{token}/sendMessage"
 data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
 req = urllib.request.Request(url, data=data, method="POST")
 with urllib.request.urlopen(req, timeout=15) as response:
     print(response.status)
-PY
-                    else
-                        echo "Telegram config missing in .env"
-                    fi
-                '''
+PY''', returnStatus: true)
+
+                        if (rc != 0) {
+                            echo "Telegram notification failed with status ${rc}."
+                        }
+                    }
+                } else {
+                    echo 'TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing in Jenkins environment.'
+                }
             }
         }
     }
