@@ -48,33 +48,38 @@ pipeline {
             script {
                 String token = env.TELEGRAM_BOT_TOKEN ?: ''
                 String chatId = env.TELEGRAM_CHAT_ID ?: ''
+                String message = "Jenkins build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BUILD_URL})"
 
                 if (token.trim() && chatId.trim() && token != 'null' && chatId != 'null') {
                     withEnv([
                         "TG_TOKEN=${token}",
                         "TG_CHAT_ID=${chatId}",
-                        "TG_TEXT=Jenkins build failed: ${env.JOB_NAME} #${env.BUILD_NUMBER} (${env.BUILD_URL})"
+                        "TG_TEXT=${message}"
                     ]) {
-                        sh '''python3 - <<'PY'
+                        int rc = sh(script: '''python3 - <<'PY'
+int rc = sh(script: '''python3 - <<'PY'
 import os
 import urllib.parse
 import urllib.request
 
-token = os.environ['TG_TOKEN']
-chat_id = os.environ['TG_CHAT_ID']
-text = os.environ['TG_TEXT']
+try:
+    token = os.environ['TG_TOKEN']
+    chat_id = os.environ['TG_CHAT_ID']
+    text = os.environ['TG_TEXT']
 
-url = f"https://api.telegram.org/bot{token}/sendMessage"
-data = urllib.parse.urlencode({"chat_id": chat_id, "text": text}).encode()
-req = urllib.request.Request(url, data=data, method="POST")
-with urllib.request.urlopen(req, timeout=15) as resp:
-    print(resp.status)
-PY'''
-                    }
-                } else {
-                    echo 'TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing; skipping Telegram notification.'
-                }
-            }
-        }
-    }
-}
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    data = urllib.parse.urlencode({
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "Markdown"
+    }).encode()
+
+    req = urllib.request.Request(url, data=data, method="POST")
+
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        print("Response:", resp.status)
+
+except Exception as e:
+    print("Error:", e)
+    exit(1)
+PY''', returnStatus: true)
