@@ -8,6 +8,28 @@
     repo_branch: main
 
   tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - git
+          - curl
+          - ca-certificates
+          - php8.1
+          - php8.1-cli
+          - php8.1-fpm
+          - php8.1-mbstring
+          - php8.1-xml
+          - php8.1-curl
+          - php8.1-sqlite3
+          - composer
+          - npm
+        state: present
+
     - name: Ensure deployment directory exists
       file:
         path: "{{ app_path }}"
@@ -16,12 +38,13 @@
         group: www-data
         mode: "0755"
 
-    - name: Pull latest source code
+    - name: Clone/update repository
       git:
         repo: "{{ repo_url }}"
         dest: "{{ app_path }}"
         version: "{{ repo_branch }}"
         force: true
+        accept_hostkey: yes
 
     - name: Ensure .env exists
       copy:
@@ -29,39 +52,56 @@
         dest: "{{ app_path }}/.env"
         remote_src: true
         force: false
+        owner: www-data
+        group: www-data
 
-    - name: Install PHP dependencies
-      command: composer install --no-dev --optimize-autoloader --no-interaction
-      args:
-        chdir: "{{ app_path }}"
-
-    - name: Generate Laravel app key
-      command: php artisan key:generate --force
-      args:
-        chdir: "{{ app_path }}"
-
-    - name: Install Node dependencies
-      command: npm install
-      args:
-        chdir: "{{ app_path }}"
-
-    - name: Build frontend
-      command: npm run build
-      args:
-        chdir: "{{ app_path }}"
-
-    - name: Optimize Laravel
-      command: php artisan optimize
-      args:
-        chdir: "{{ app_path }}"
-
-    - name: Set correct permissions
+    - name: Set permissions before installation
       file:
         path: "{{ app_path }}"
         state: directory
         recurse: yes
         owner: www-data
         group: www-data
+        mode: "0755"
+
+    - name: Install PHP dependencies
+      command: composer install --no-dev --optimize-autoloader --no-interaction
+      args:
+        chdir: "{{ app_path }}"
+      become_user: www-data
+
+    - name: Generate Laravel app key
+      command: php artisan key:generate --force
+      args:
+        chdir: "{{ app_path }}"
+      become_user: www-data
+
+    - name: Install Node dependencies
+      command: npm install
+      args:
+        chdir: "{{ app_path }}"
+      become_user: www-data
+
+    - name: Build frontend
+      command: npm run build
+      args:
+        chdir: "{{ app_path }}"
+      become_user: www-data
+
+    - name: Optimize Laravel
+      command: php artisan optimize
+      args:
+        chdir: "{{ app_path }}"
+      become_user: www-data
+
+    - name: Set final permissions
+      file:
+        path: "{{ app_path }}"
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+        mode: "0755"
 
     - name: Restart PHP-FPM
       service:
