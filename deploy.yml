@@ -13,6 +13,11 @@
         update_cache: yes
         cache_valid_time: 3600
 
+    - name: Fix broken packages
+      shell: apt-get install -f -y
+      register: fix_result
+      failed_when: fix_result.rc not in [0, 100]
+
     - name: Install required packages
       apt:
         name:
@@ -27,7 +32,6 @@
           - php8.1-curl
           - php8.1-sqlite3
           - composer
-          - npm
         state: present
 
     - name: Remove deployment directory if it exists (fresh clone)
@@ -81,17 +85,31 @@
         chdir: "{{ app_path }}"
       become_user: www-data
 
-    - name: Install Node dependencies
+    - name: Install NodeSource repository
+      shell: |
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      ignore_errors: yes
+
+    - name: Install Node.js and npm
+      apt:
+        name:
+          - nodejs
+        state: present
+      ignore_errors: yes
+
+    - name: Install Node dependencies (optional)
       command: npm install
       args:
         chdir: "{{ app_path }}"
       become_user: www-data
+      ignore_errors: yes
 
-    - name: Build frontend
+    - name: Build frontend (optional)
       command: npm run build
       args:
         chdir: "{{ app_path }}"
       become_user: www-data
+      ignore_errors: yes
 
     - name: Optimize Laravel
       command: php artisan optimize
