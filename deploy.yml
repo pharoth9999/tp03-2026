@@ -126,6 +126,31 @@
         group: www-data
         mode: "0755"
 
+    - name: Configure nginx for /thy-pharoth Laravel route
+      copy:
+        dest: /etc/nginx/conf.d/thy-pharoth.conf
+        content: |
+          location = /thy-pharoth {
+              return 301 /thy-pharoth/;
+          }
+
+          location /thy-pharoth/ {
+              alias {{ app_path }}/public/;
+              index index.php index.html;
+              try_files $uri $uri/ /thy-pharoth/index.php?$query_string;
+          }
+
+          location ~ ^/thy-pharoth/(.+\.php)$ {
+              alias {{ app_path }}/public/$1;
+              include snippets/fastcgi-php.conf;
+              fastcgi_pass unix:/run/php/php8.1-fpm.sock;
+              fastcgi_param SCRIPT_FILENAME {{ app_path }}/public/$1;
+              include fastcgi_params;
+          }
+
+    - name: Validate nginx config
+      command: nginx -t
+
     - name: Restart PHP-FPM
       service:
         name: php8.1-fpm
